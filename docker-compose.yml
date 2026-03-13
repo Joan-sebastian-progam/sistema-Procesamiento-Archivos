@@ -1,0 +1,110 @@
+services:
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.4.0
+    hostname: zookeeper
+    container_name: zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    ports:
+      - "2181:2181"
+
+  kafka:
+    image: confluentinc/cp-kafka:7.4.0
+    hostname: kafka
+    container_name: kafka
+    depends_on:
+      - zookeeper
+    ports:
+      - "9092:9092"
+      - "29092:29092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:29092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    container_name: kafka-ui
+    depends_on:
+      - kafka
+    ports:
+      - "8090:8080"
+    environment:
+      KAFKA_CLUSTERS_0_NAME: Default
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9092
+
+  postgres:
+    image: postgres:15
+    container_name: postgres
+    environment:
+      POSTGRES_DB: fileprocessor
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: secret
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  sftp-server:
+    image: atmoz/sftp:latest
+    container_name: sftp-server
+    ports:
+      - "2222:22"
+    volumes:
+      - nfs-storage:/home/uploader/upload
+    command: uploader:password:::upload
+
+  sftp-watcher:
+    build: ./services/sftp-watcher
+    container_name: sftp-watcher
+    depends_on:
+      - kafka
+      - sftp-server
+    environment:
+      SFTP_HOST: sftp-server
+      SFTP_USER: uploader
+      SFTP_PASS: password
+      KAFKA_BROKER: kafka:9092
+    volumes:
+      - nfs-storage:/mnt/nfs
+
+  file-processor:
+    build: ./services/file-processor
+    container_name: file-processor
+    depends_on:
+      - kafka
+      - postgres
+    environment:
+      KAFKA_BROKER: kafka:9092
+      DATABASE_URL: postgresql://admin:secret@postgres/fileprocessor
+    volumes:
+      - nfs-storage:/mnt/nfs
+
+  api:
+    build: ./services/api
+    container_name: api
+    ports:
+      - "8000:8000"
+    depends_on:
+      - postgres
+      - kafka
+    environment:
+      DATABASE_URL: postgresql://admin:secret@postgres/fileprocessor
+      KAFKA_BROKER: kafka:9092
+
+  dashboard:
+    build: ./dashboard
+    container_name: dashboard
+    ports:
+      - "4200:4200"
+    depends_on:
+      - api
+
+volumes:
+  pgdata:
+  nfs-storage:
