@@ -1,0 +1,62 @@
+<div class="dashboard">
+  <h1>📂 File Processing Dashboard</h1>
+
+  
+  <div class="stats-grid">
+    <mat-card class="stat-card">
+      <mat-card-title>Total Archivos</mat-card-title>
+      <div class="stat-number">{{ getTotalJobs() }}</div>
+    </mat-card>
+
+    <mat-card class="stat-card success">
+      <mat-card-title>Completados</mat-card-title>
+      <div class="stat-number">{{ getCompletedJobs() }}</div>
+    </mat-card>
+
+    <mat-card *ngFor="let s of stats" class="stat-card"
+              [style.border-left-color]="getStatusColor(s.status)">
+      <mat-card-title>{{ s.status | titlecase }}</mat-card-title>
+      <div class="stat-number">{{ s.count }}</div>
+      <small>{{ s.total_rows || 0 }} filas procesadas</small>
+    </mat-card>
+  </div>
+
+  
+  <mat-card class="table-card">
+    <mat-card-title>Jobs Recientes</mat-card-title>
+    <table mat-table [dataSource]="jobs">
+      
+      <ng-container matColumnDef="filename">
+        <th mat-header-cell *matHeaderCellDef>Archivo</th>
+        <td mat-cell *matCellDef="let j">{{ j.filename }}</td>
+      </ng-container>
+
+      <ng-container matColumnDef="status">
+        <th mat-header-cell *matHeaderCellDef>Estado</th>
+        <td mat-cell *matCellDef="let j">
+          <span class="badge" [style.background]="getStatusColor(j.status)">
+            {{ j.status }}
+          </span>
+        </td>
+      </ng-container>
+
+      <ng-container matColumnDef="size">
+        <th mat-header-cell *matHeaderCellDef>Tamaño</th>
+        <td mat-cell *matCellDef="let j">{{ (j.size / 1024) | number:'1.1-1' }} KB</td>
+      </ng-container>
+
+      <ng-container matColumnDef="rows_processed">
+        <th mat-header-cell *matHeaderCellDef>Filas</th>
+        <td mat-cell *matCellDef="let j">{{ j.rows_processed || '-' }}</td>
+      </ng-container>
+
+      <ng-container matColumnDef="received_at">
+        <th mat-header-cell *matHeaderCellDef>Recibido</th>
+        <td mat-cell *matCellDef="let j">{{ j.received_at | date:'short' }}</td>
+      </ng-container>
+
+      <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+      <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
+    </table>
+  </mat-card>
+</div>
